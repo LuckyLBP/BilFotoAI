@@ -58,7 +58,9 @@ export default function useRemoveBg() {
       });
 
       const buffer = response.data;
-      const base64Image = `data:image/png;base64,${Buffer.from(buffer).toString('base64')}`;
+      const base64Image = `data:image/png;base64,${Buffer.from(buffer).toString(
+        'base64'
+      )}`;
       return base64Image;
     } catch (error: any) {
       console.error('Fel vid bearbetning av bilden:', error);

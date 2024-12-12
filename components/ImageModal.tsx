@@ -5,11 +5,10 @@ import {
   Image,
   StyleSheet,
   TouchableWithoutFeedback,
+  Alert,
 } from 'react-native';
 import CustomButton from './CustomButton';
-import * as MediaLibrary from 'expo-media-library';
-import { Alert } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import useRemoveBg from '../hooks/useRemoveBg';
 
 interface ImageModalProps {
   visible: boolean;
@@ -22,6 +21,8 @@ export default function ImageModal({
   imageUri,
   onClose,
 }: ImageModalProps) {
+  const { saveImageToLibrary } = useRemoveBg();
+
   const onSave = async () => {
     if (!imageUri) {
       Alert.alert('Ingen bild', 'Det finns ingen bild att spara.');
@@ -31,36 +32,12 @@ export default function ImageModal({
     console.log('Image URI:', imageUri);
 
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Behörighet nekad',
-          'Appen har inte behörighet att spara bilder.'
-        );
-        return;
+      const success = await saveImageToLibrary(imageUri);
+      if (success) {
+        Alert.alert('Lyckat!', 'Bilden sparades till galleriet.');
+      } else {
+        Alert.alert('Fel', 'Ett fel uppstod vid sparande av bilden.');
       }
-
-      let uriToSave = imageUri;
-
-      // Bilden kommer från en base64-sträng
-      if (!uriToSave.match(/\.\w+$/)) {
-        console.log('Creating file with extension...');
-        const tempUri = `${FileSystem.cacheDirectory}image.png`;
-        await FileSystem.writeAsStringAsync(
-          tempUri,
-          uriToSave.replace(/^data:image\/\w+;base64,/, ''),
-          {
-            encoding: FileSystem.EncodingType.Base64,
-          }
-        );
-        uriToSave = tempUri;
-        console.log('Temporary file created at:', tempUri);
-      }
-
-      // Spara bilden
-      const asset = await MediaLibrary.createAssetAsync(uriToSave);
-      await MediaLibrary.createAlbumAsync('BilFotoAI', asset, false);
-      Alert.alert('Lyckat!', 'Bilden sparades till galleriet.');
     } catch (error) {
       console.error('Error saving image:', error);
       Alert.alert('Fel', 'Ett fel uppstod vid sparande av bilden.');
