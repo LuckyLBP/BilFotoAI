@@ -5,12 +5,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import useRemoveBg from '../hooks/useRemoveBg';
 import CustomButton from '../components/CustomButton';
 import ProcessedImageModal from '../components/ProcessedImageModal';
+import CameraComponent from '../components/CameraComponent';
 import { ProcessedImage } from '../types/ProcessImage';
 
 export default function RemoveBgScreen() {
   const { processImage } = useRemoveBg();
-  const [currentProcessedImage, setCurrentProcessedImage] = useState<ProcessedImage | null>(null);
+  const [currentProcessedImage, setCurrentProcessedImage] =
+    useState<ProcessedImage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   // Välj bild
   const pickImage = async () => {
@@ -22,7 +25,7 @@ export default function RemoveBgScreen() {
       );
       return;
     }
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
@@ -30,19 +33,33 @@ export default function RemoveBgScreen() {
 
     // När användare har valt en bild
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const beforeUri = result.assets[0].uri;
-      if (beforeUri) {
-        setIsLoading(true); 
-        const afterUri = await processImage(beforeUri);
-        setIsLoading(false);
-        if (afterUri) {
-          setCurrentProcessedImage({ beforeUri, afterUri, folderName: '' });
-          Alert.alert('Lyckat!', 'Bilden bearbetades framgångsrikt!');
-        } else {
-          Alert.alert('Fel', 'Ett fel uppstod vid bearbetning av bilden.');
-        }
+      processSelectedImage(result.assets[0].uri);
+    }
+  };
+
+  // Process the selected or captured image
+  const processSelectedImage = async (imageUri: string) => {
+    if (imageUri) {
+      setIsLoading(true);
+      const afterUri = await processImage(imageUri);
+      setIsLoading(false);
+      if (afterUri) {
+        setCurrentProcessedImage({
+          beforeUri: imageUri,
+          afterUri,
+          folderName: '',
+        });
+        Alert.alert('Lyckat!', 'Bilden bearbetades framgångsrikt!');
+      } else {
+        Alert.alert('Fel', 'Ett fel uppstod vid bearbetning av bilden.');
       }
     }
+  };
+
+  // Handle photo captured from camera
+  const handlePhotoCapture = (imageUri: string) => {
+    setShowCamera(false);
+    processSelectedImage(imageUri);
   };
 
   // Stäng modal
@@ -52,14 +69,32 @@ export default function RemoveBgScreen() {
 
   return (
     <LinearGradient colors={['#6a11cb', '#2575fc']} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>BilFotoAI</Text>
-        <Text style={styles.tagline}>Få dina bilder att sticka ut!</Text>
-      </View>
-      <View style={styles.body}>
-        <CustomButton title="Välj Foto" onPress={pickImage} style={styles.button} />
-        <CustomButton title="Öppna Kamera" onPress={() => Alert.alert('Dummy', 'Öppna Kamera-knappen är en dummy.')} style={styles.dummyButton} />
-      </View>
+      {showCamera ? (
+        <CameraComponent
+          onClose={() => setShowCamera(false)}
+          onPhotoCapture={handlePhotoCapture}
+        />
+      ) : (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>BilFotoAI</Text>
+            <Text style={styles.tagline}>Få dina bilder att sticka ut!</Text>
+          </View>
+          <View style={styles.body}>
+            <CustomButton
+              title="Välj Foto"
+              onPress={pickImage}
+              style={styles.button}
+            />
+            <CustomButton
+              title="Öppna Kamera"
+              onPress={() => setShowCamera(true)}
+              style={styles.dummyButton}
+            />
+          </View>
+        </>
+      )}
+
       {currentProcessedImage && (
         <ProcessedImageModal
           visible={true}

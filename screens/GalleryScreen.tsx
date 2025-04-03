@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Pressable, Image } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Pressable,
+  Image,
+} from 'react-native';
 import { useImageContext } from '../context/ImageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import ImageModal from '../components/ImageModal';
@@ -7,21 +14,21 @@ import ImageModal from '../components/ImageModal';
 export default function GalleryScreen() {
   const { images, folders } = useImageContext();
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null); 
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Filtrera ut bilder baserat på mapp
   const displayedImages = selectedFolder
-    ? images.filter(img => img.folderName === selectedFolder)
+    ? images.filter((img) => img.folderName === selectedFolder)
     : images;
 
-    // Öppna modal för att visa en bild
+  // Öppna modal för att visa en bild
   const handleImagePress = (uri: string) => {
     setSelectedImage(uri);
   };
 
   // Stäng modal
   const closeModal = () => {
-    setSelectedImage(null); 
+    setSelectedImage(null);
   };
 
   return (
@@ -40,7 +47,9 @@ export default function GalleryScreen() {
                   styles.folderChip,
                   selectedFolder === item && styles.selectedChip,
                 ]}
-                onPress={() => setSelectedFolder(item === selectedFolder ? null : item)}
+                onPress={() =>
+                  setSelectedFolder(item === selectedFolder ? null : item)
+                }
               >
                 <Text style={styles.folderChipText}>{item}</Text>
               </Pressable>
@@ -60,19 +69,31 @@ export default function GalleryScreen() {
           <View style={styles.imagePair}>
             <View style={styles.imageContainer}>
               <Text style={styles.label}>Före</Text>
-              <Image source={{ uri: item.beforeUri }} style={styles.image} resizeMode="cover" />
+              <Image
+                source={{ uri: item.beforeUri }}
+                style={styles.image}
+                resizeMode="cover"
+              />
             </View>
             <Pressable
               style={styles.imageContainer}
               onPress={() => handleImagePress(item.afterUri)}
             >
               <Text style={styles.label}>Efter</Text>
-              <Image source={{ uri: item.afterUri }} style={styles.image} resizeMode="cover" />
+              <Image
+                source={{ uri: item.afterUri }}
+                style={styles.image}
+                resizeMode="cover"
+              />
             </Pressable>
           </View>
         )}
-        contentContainerStyle={displayedImages.length === 0 ? styles.emptyContainer : undefined}
-        ListEmptyComponent={<Text style={styles.emptyText}>Inga bilder här ännu</Text>}
+        contentContainerStyle={
+          displayedImages.length === 0 ? styles.emptyContainer : undefined
+        }
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>Inga bilder här ännu</Text>
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -98,6 +119,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
+    paddingTop: 40,
   },
   folderContainer: {
     marginBottom: 20,
