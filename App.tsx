@@ -22,7 +22,9 @@ export default function App() {
               if (route.name === 'Skapa') {
                 iconName = focused ? 'camera-plus' : 'camera-plus-outline';
               } else if (route.name === 'Galleri') {
-                iconName = focused ? 'image-multiple' : 'image-multiple-outline';
+                iconName = focused
+                  ? 'image-multiple'
+                  : 'image-multiple-outline';
               } else if (route.name === 'Inställningar') {
                 iconName = focused ? 'cog' : 'cog-outline';
               }

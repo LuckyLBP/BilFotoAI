@@ -37,7 +37,7 @@ export default function RemoveBgScreen() {
     }
   };
 
-  // Process the selected or captured image
+  // Processa vald bild
   const processSelectedImage = async (imageUri: string) => {
     if (imageUri) {
       setIsLoading(true);
@@ -56,10 +56,10 @@ export default function RemoveBgScreen() {
     }
   };
 
-  // Handle photo captured from camera
-  const handlePhotoCapture = (imageUri: string) => {
+  // Hantera foto från kameran
+  const handlePhotoCapture = (photos: Record<string, string>) => {
     setShowCamera(false);
-    processSelectedImage(imageUri);
+    processSelectedImage(Object.values(photos)[0]);
   };
 
   // Stäng modal

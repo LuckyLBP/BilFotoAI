@@ -1,30 +1,100 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  Alert,
+  Image,
+  Dimensions,
+} from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useCameraOverlay } from '../hooks/useCameraOverlay';
 
 interface CameraComponentProps {
   onClose: () => void;
-  onPhotoCapture: (uri: string) => void;
+  onPhotoCapture: (photos: Record<string, string>) => void;
 }
 
 export default function CameraComponent({
   onClose,
   onPhotoCapture,
 }: CameraComponentProps) {
-  const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
+    'portrait'
+  );
 
+  // Use Dimensions to get current screen dimensions
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+
+  // Använd kamerahook för att hantera bilvinklar
+  const {
+    currentAngle,
+    totalAngles,
+    currentAngleIndex,
+    goToNextAngle,
+    markAsDone,
+  } = useCameraOverlay((photos) => {
+    onPhotoCapture(photos);
+    onClose();
+  });
+
+  // Enhanced orientation detection that combines both ScreenOrientation and Dimensions
+  useEffect(() => {
+    // Function to determine orientation based on screen dimensions
+    const determineOrientation = () => {
+      const { width, height } = Dimensions.get('window');
+      if (width > height) {
+        setOrientation('landscape');
+      } else {
+        setOrientation('portrait');
+      }
+    };
+
+    // Set initial orientation
+    determineOrientation();
+
+    // Add dimension change listener
+    const dimensionSubscription = Dimensions.addEventListener(
+      'change',
+      determineOrientation
+    );
+
+    // Add screen orientation listener as backup
+    const orientationSubscription =
+      ScreenOrientation.addOrientationChangeListener(() => {
+        // Small delay to ensure Dimensions has updated
+        setTimeout(determineOrientation, 50);
+      });
+
+    // Unlock screen orientation to allow rotation
+    ScreenOrientation.unlockAsync();
+
+    return () => {
+      // Clean up all listeners
+      dimensionSubscription.remove();
+      ScreenOrientation.removeOrientationChangeListener(
+        orientationSubscription
+      );
+    };
+  }, []);
+
+  // Ta en bild
   const takePicture = async () => {
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 1,
           base64: false,
+          exif: true, // Include EXIF data for proper orientation
         });
         if (photo) {
-          onPhotoCapture(photo.uri);
+          goToNextAngle(photo.uri);
         }
       } catch (error) {
         console.error('Error taking picture:', error);
@@ -33,8 +103,20 @@ export default function CameraComponent({
     }
   };
 
-  const toggleCameraFacing = () => {
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
+  // Helper functions for UI actions with console logging for debugging
+  const handleClosePress = () => {
+    console.log('Close button pressed');
+    onClose();
+  };
+
+  const handleCapturePress = () => {
+    console.log('Capture button pressed');
+    takePicture();
+  };
+
+  const handleDonePress = () => {
+    console.log('Done button pressed');
+    markAsDone();
   };
 
   if (!permission) {
@@ -61,22 +143,74 @@ export default function CameraComponent({
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        <View style={styles.controlsContainer}>
-          <TouchableOpacity style={styles.button} onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={28} color="white" />
-          </TouchableOpacity>
+      <CameraView style={styles.camera} facing={'back'} ref={cameraRef}>
+        {/* Overlay image */}
+        <Image
+          source={currentAngle.overlayImage}
+          style={styles.overlay}
+          resizeMode="contain"
+        />
 
-          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-            <View style={styles.captureButtonInner} />
-          </TouchableOpacity>
+        {/* Debug info - remove in production */}
+        <View style={styles.debugInfo}>
+          <Text style={styles.debugText}>
+            {orientation} ({screenWidth}x{screenHeight})
+          </Text>
+        </View>
 
-          <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
-            <MaterialCommunityIcons
-              name="camera-flip"
-              size={28}
-              color="white"
-            />
+        {/* Angle indicator */}
+        <View
+          style={
+            orientation === 'portrait'
+              ? styles.angleIndicator
+              : styles.angleIndicatorLandscape
+          }
+        >
+          <Text style={styles.angleText}>
+            {currentAngle.label} ({currentAngleIndex + 1}/{totalAngles})
+          </Text>
+        </View>
+
+        {/* Control buttons positioned above the overlay */}
+        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          {/* Camera controls (close and capture) */}
+          <View
+            style={
+              orientation === 'portrait'
+                ? styles.controlsContainer
+                : styles.controlsContainerLandscape
+            }
+          >
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleClosePress}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="close" size={28} color="white" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.captureButton}
+              onPress={handleCapturePress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.captureButtonInner} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Done button - always visible in both orientations */}
+          <TouchableOpacity
+            style={
+              orientation === 'portrait'
+                ? styles.doneButtonContainer
+                : styles.doneButtonContainerLandscape
+            }
+            onPress={handleDonePress}
+            activeOpacity={0.7}
+          >
+            <View style={styles.doneButton}>
+              <Text style={styles.doneButtonText}>Klar</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </CameraView>
@@ -121,22 +255,33 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'space-around',
     alignItems: 'center',
+    zIndex: 1000,
   },
   button: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
   },
   captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
   },
   captureButtonInner: {
     width: 60,
@@ -145,5 +290,86 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 2,
     borderColor: 'rgba(0,0,0,0.3)',
+  },
+  overlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.7,
+  },
+  angleIndicator: {
+    position: 'absolute',
+    top: 40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 10,
+    borderRadius: 20,
+  },
+  angleText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  doneButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
+  },
+  doneButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  doneButtonContainer: {
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
+    zIndex: 1000,
+  },
+  doneButtonContainerLandscape: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    zIndex: 1000,
+  },
+  angleIndicatorLandscape: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    padding: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    zIndex: 100,
+  },
+  controlsContainerLandscape: {
+    position: 'absolute',
+    right: 30,
+    height: '100%',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 30,
+    zIndex: 1000,
+  },
+  debugInfo: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 5,
+    borderRadius: 5,
+    zIndex: 1000,
+  },
+  debugText: {
+    color: 'yellow',
+    fontSize: 10,
   },
 });
